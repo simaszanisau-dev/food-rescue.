@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+    <meta charset="UTF-8">
+    <title>Food Rescue - Išmanusis Virtuvės Asistentas</title>
+    <!-- Užkrauname Supabase biblioteką -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background: #0f172a; color: #fff; padding: 40px; }
+        .card { background: #1e293b; padding: 20px; border-radius: 8px; max-width: 400px; margin-bottom: 20px; }
+        input, button { width: 100%; padding: 10px; margin-top: 10px; border-radius: 4px; border: none; }
+        button { background: #10b981; color: white; font-weight: bold; cursor: pointer; }
+        button:hover { background: #059669; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <h1>Food Rescue</h1>
+
+    <!-- Prisijungimo / Registracijos forma -->
+    <div id="auth-section" class="card">
+        <h3>Prisijungimas / Registracija</h3>
+        <input type="email" id="email" placeholder="El. paštas">
+        <input type="password" id="password" placeholder="Slaptažodis">
+        <button onclick="signUp()">Registruotis</button>
+        <button onclick="signIn()" style="background: #3b82f6;">Prisijungti</button>
+    </div>
+
+    <!-- Pagrindinis puslapis po prisijungimo -->
+    <div id="app-section" class="card hidden">
+        <h3>Mano Maisto Produktai</h3>
+        <p id="user-info"></p>
+        <input type="text" id="product-name" placeholder="Produkto pavadinimas (pvz., Pienas)">
+        <input type="date" id="expiry-date">
+        <button onclick="addProduct()">Pridėti produktą</button>
+        <button onclick="signOut()" style="background: #ef4444; margin-top: 20px;">Atsijungti</button>
+        
+        <ul id="product-list"></ul>
+    </div>
+
+    <script>
+        // Jūsų Supabase duomenys
+        const SUPABASE_URL = 'https://kvgccphmrkjsnikcaziv.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_I8LYn1xL13Uy6Q2B63PEMw_4ObAtxix';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function signUp() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const { error } = await supabase.auth.signUp({ email, password });
+            if (error) alert(error.message);
+            else alert('Registracija sėkminga! Patikrinkite el. paštą arba bandykite prisijungti.');
+        }
+
+        async function signIn() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) alert(error.message);
+            else checkUser();
+        }
+
+        async function signOut() {
+            await supabase.auth.signOut();
+            checkUser();
+        }
+
+        async function checkUser() {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                document.getElementById('auth-section').classList.add('hidden');
+                document.getElementById('app-section').classList.remove('hidden');
+                document.getElementById('user-info').innerText = 'Prisijungęs: ' + session.user.email;
+                loadProducts();
+            } else {
+                document.getElementById('auth-section').classList.remove('hidden');
+                document.getElementById('app-section').classList.add('hidden');
+            }
+        }
+
+        async function addProduct() {
+            const name = document.getElementById('product-name').value;
+            const expiry = document.getElementById('expiry-date').value;
+            const { data: { user } } = await supabase.auth.getUser();
+
+            const { error } = await supabase.from('products').insert([
+                { title: name, expiry_date: expiry, user_id: user.id }
+            ]);
+
+            if (error) alert(error.message);
+            else {
+                document.getElementById('product-name').value = '';
+                loadProducts();
+            }
+        }
+
+        async function loadProducts() {
+            const { data, error } = await supabase.from('products').select('*');
+            const list = document.getElementById('product-list');
+            list.innerHTML = '';
+            if (data) {
+                data.forEach(p => {
+                    const li = document.createElement('li');
+                    li.innerText = `${p.title} (Galioja iki: ${p.expiry_date})`;
+                    list.appendChild(li);
+                });
+            }
+        }
+
+        checkUser();
+    </script>
+</body>
+</html>
